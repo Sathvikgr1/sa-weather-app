@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WA Weather</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#111a2b;
+      --text:#e6f0ff;
+      --muted:#9bb0cf;
+      --accent:#5aa9ff;
+      --danger:#ff6b6b;
+      --ok:#22c55e;
+      --warning:#ffb020;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 20% -10%, #1b2a4a 0%, var(--bg) 50%, #090f1a 100%);
+      color:var(--text); display:grid; place-items:center; padding:24px;
+    }
+    .app{width:min(900px, 100%);}
+    header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px}
+    .brand{display:flex; align-items:center; gap:10px}
+    .brand .logo{width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,#5aa9ff,#7c4dff); display:grid; place-items:center; box-shadow:var(--shadow)}
+    .brand h1{font-size:20px; margin:0; letter-spacing:0.3px}
+    .search{display:flex; gap:10px; width:100%}
+    .search input{
+      flex:1; padding:14px 16px; border-radius:14px; border:1px solid transparent; background: #0e1728; color:var(--text);
+      outline:none; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .search input::placeholder{color:#6e84ab}
+    .search button{
+      padding:12px 16px; border:none; border-radius:12px; background:var(--accent); color:#031126; font-weight:600; cursor:pointer; box-shadow:var(--shadow);
+    }
+    .grid{display:grid; grid-template-columns: 1.2fr .8fr; gap:16px}
+    @media (max-width:840px){.grid{grid-template-columns:1fr}}
+
+    .card{background:var(--card); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:18px; box-shadow:var(--shadow)}
+    .muted{color:var(--muted)}
+    .row{display:flex; align-items:center; justify-content:space-between; gap:12px}
+    .stack{display:flex; flex-direction:column; gap:6px}
+
+    /* Current conditions */
+    .current{display:flex; align-items:center; gap:18px}
+    .current .temp{font-size:60px; font-weight:700; line-height:0.9}
+    .current .unit{font-size:18px; margin-left:2px}
+    .current img{width:80px; height:80px}
+    .chips{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+    .chip{background:#0e1728; border:1px solid rgba(255,255,255,.06); padding:8px 10px; border-radius:999px; font-size:12px}
+
+    /* Metrics list */
+    .metrics{display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-top:14px}
+    .metric{background:#0e1728; border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:12px}
+    .metric .k{font-size:12px; color:var(--muted)}
+    .metric .v{font-size:18px; font-weight:600}
+
+    /* AQI */
+    .aqi-scale{height:10px; width:100%; background:linear-gradient(90deg, #22c55e, #a3e635, #fde047, #fb923c, #ef4444, #991b1b); border-radius:7px; position:relative; margin-top:8px}
+    .aqi-pointer{position:absolute; top:-6px; width:2px; height:22px; background:#fff; border-radius:2px}
+    .aqi-badge{display:inline-block; padding:6px 10px; border-radius:999px; font-weight:700; font-size:12px; margin-top:8px}
+
+    footer{margin-top:14px; text-align:center; font-size:12px}
+    a{color:var(--accent)}
+    .error{background:#2a1020; border-color:#5b143e;}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <div class="logo">🌦️</div>
+        <h1>WA Weather</h1>
+      </div>
+      <form id="searchForm" class="search" autocomplete="off">
+        <input id="query" name="q" placeholder="Enter city or place… (e.g., London, 560001, Paris)" />
+        <button type="submit">Search</button>
+      </form>
+    </header>
+
+    <div id="status" class="card muted" style="display:none"></div>
+
+    <div class="grid">
+      <section id="currentCard" class="card" aria-live="polite">
+        <div class="stack">
+          <div class="row">
+            <div class="stack">
+              <div class="muted" id="loc">—</div>
+              <div class="current">
+                <img id="icon" alt="" src="" />
+                <div>
+                  <div><span class="temp" id="temp">—</span><span class="unit">°C</span></div>
+                  <div id="cond" class="muted">—</div>
+                </div>
+              </div>
+              <div class="chips">
+                <span class="chip">Feels like: <b id="feels">—°C</b></span>
+                <span class="chip">Humidity: <b id="humidity">—%</b></span>
+                <span class="chip">Wind: <b id="wind">— kph</b></span>
+                <span class="chip">Pressure: <b id="pressure">— mb</b></span>
+                <span class="chip">Visibility: <b id="vis">— km</b></span>
+                <span class="chip">Updated: <b id="updated">—</b></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="metrics">
+            <div class="metric"><div class="k">UV Index</div><div class="v" id="uv">—</div></div>
+            <div class="metric"><div class="k">Cloud Cover</div><div class="v" id="cloud">—%</div></div>
+            <div class="metric"><div class="k">Gust</div><div class="v" id="gust">— kph</div></div>
+            <div class="metric"><div class="k">Precipitation</div><div class="v" id="precip">— mm</div></div>
+          </div>
+        </div>
+      </section>
+
+      <aside id="aqiCard" class="card">
+        <div class="row" style="justify-content:space-between">
+          <div>
+            <div class="muted">Air Quality</div>
+            <div class="aqi-badge" id="aqiBadge">—</div>
+          </div>
+          <div class="stack" style="text-align:right">
+            <div class="muted" style="font-size:12px">PM2.5 <b id="pm25">—</b></div>
+            <div class="muted" style="font-size:12px">PM10 <b id="pm10">—</b></div>
+            <div class="muted" style="font-size:12px">O₃ <b id="o3">—</b></div>
+            <div class="muted" style="font-size:12px">NO₂ <b id="no2">—</b></div>
+            <div class="muted" style="font-size:12px">SO₂ <b id="so2">—</b></div>
+            <div class="muted" style="font-size:12px">CO <b id="co">—</b></div>
+          </div>
+        </div>
+        <div class="aqi-scale"><span id="aqiPointer" class="aqi-pointer" style="left:0%"></span></div>
+        <div class="muted" style="margin-top:8px" id="aqiText">—</div>
+      </aside>
+    </div>
+
+    <footer class="muted">Data by <a href="https://www.weatherapi.com/" target="_blank" rel="noopener">WeatherAPI</a>. Built for you ✨</footer>
+  </div>
+
+  <script>
+    // === CONFIG ===
+    const API_KEY = "5ca2bc9510cc44469f1144328250209"; // provided by you
+    const BASE_URL = "https://api.weatherapi.com/v1/current.json";
+
+    const els = {
+      status: document.getElementById("status"),
+      form: document.getElementById("searchForm"),
+      q: document.getElementById("query"),
+      loc: document.getElementById("loc"),
+      icon: document.getElementById("icon"),
+      temp: document.getElementById("temp"),
+      cond: document.getElementById("cond"),
+      feels: document.getElementById("feels"),
+      humidity: document.getElementById("humidity"),
+      wind: document.getElementById("wind"),
+      pressure: document.getElementById("pressure"),
+      vis: document.getElementById("vis"),
+      updated: document.getElementById("updated"),
+      uv: document.getElementById("uv"),
+      cloud: document.getElementById("cloud"),
+      gust: document.getElementById("gust"),
+      precip: document.getElementById("precip"),
+      // AQI
+      aqiBadge: document.getElementById("aqiBadge"),
+      aqiPointer: document.getElementById("aqiPointer"),
+      aqiText: document.getElementById("aqiText"),
+      pm25: document.getElementById("pm25"),
+      pm10: document.getElementById("pm10"),
+      o3: document.getElementById("o3"),
+      no2: document.getElementById("no2"),
+      so2: document.getElementById("so2"),
+      co: document.getElementById("co"),
+    };
+
+    function showStatus(msg, type = "info"){
+      els.status.textContent = msg;
+      els.status.style.display = "block";
+      els.status.classList.toggle("error", type === "error");
+    }
+    function hideStatus(){ els.status.style.display = "none"; }
+
+    function qualityFromAQI(aqi){
+      // Using US EPA breakpoints (0-500). WeatherAPI provides pm components; we derive AQI using PM2.5 as a simple proxy.
+      const v = aqi;
+      if (v == null || isNaN(v)) return {label:"—", cls:"", pct:0, desc:"No data"};
+      if (v <= 50) return {label:"Good", cls:"ok", pct: 10, desc:"Air quality is satisfactory."};
+      if (v <= 100) return {label:"Moderate", cls:"", pct: 26, desc:"Acceptable; some pollutants may be a concern for a few."};
+      if (v <= 150) return {label:"USG", cls:"warning", pct: 42, desc:"Sensitive groups may experience effects."};
+      if (v <= 200) return {label:"Unhealthy", cls:"danger", pct: 58, desc:"Everyone may begin to feel effects."};
+      if (v <= 300) return {label:"Very Unhealthy", cls:"danger", pct: 78, desc:"Health warnings of emergency conditions."};
+      return {label:"Hazardous", cls:"danger", pct: 95, desc:"Serious health effects likely."};
+    }
+
+    // Quick AQI approximation from PM2.5 µg/m³ -> US AQI using linear pieces
+    function pm25ToUS_AQI(pm){
+      if(pm==null||pm<0) return null;
+      const br=[
+        [0,12,0,50], [12.1,35.4,51,100], [35.5,55.4,101,150], [55.5,150.4,151,200], [150.5,250.4,201,300], [250.5,500.4,301,500]
+      ];
+      for(const [Cl, Ch, Il, Ih] of br){
+        if(pm>=Cl && pm<=Ch){
+          return Math.round(((Ih-Il)/(Ch-Cl))*(pm-Cl)+Il);
+        }
+      }
+      return 500;
+    }
+
+    async function fetchWeather(query){
+      const url = `${BASE_URL}?key=${API_KEY}&q=${encodeURIComponent(query)}&aqi=yes`;
+      showStatus("Fetching weather…");
+      try{
+        const res = await fetch(url);
+        if(!res.ok){
+          const text = await res.text();
+          throw new Error(`API error ${res.status}: ${text}`);
+        }
+        const data = await res.json();
+        hideStatus();
+        renderWeather(data);
+      }catch(err){
+        console.error(err);
+        showStatus("Could not fetch weather. Please check the location and try again.", "error");
+      }
+    }
+
+    function renderWeather(d){
+      const { location, current } = d;
+      els.loc.textContent = `${location.name}, ${location.region || location.country}`;
+      els.icon.src = `https:${current.condition.icon}`;
+      els.icon.alt = current.condition.text;
+      els.temp.textContent = Math.round(current.temp_c);
+      els.cond.textContent = current.condition.text;
+      els.feels.textContent = `${Math.round(current.feelslike_c)}°C`;
+      els.humidity.textContent = `${current.humidity}%`;
+      els.wind.textContent = `${current.wind_kph} kph ${current.wind_dir}`;
+      els.pressure.textContent = `${current.pressure_mb} mb`;
+      els.vis.textContent = `${current.vis_km} km`;
+      els.updated.textContent = current.last_updated;
+      els.uv.textContent = current.uv;
+      els.cloud.textContent = `${current.cloud}%`;
+      els.gust.textContent = `${current.gust_kph} kph`;
+      els.precip.textContent = `${current.precip_mm} mm`;
+
+      const aq = current.air_quality || {};
+      const pm25 = aq.pm2_5 ?? null;
+      const pm10 = aq.pm10 ?? aq.pm10_us ?? null; // WeatherAPI uses pm10
+      els.pm25.textContent = pm25 != null ? pm25.toFixed(1) : "—";
+      els.pm10.textContent = pm10 != null ? pm10.toFixed(1) : "—";
+      els.o3.textContent = aq.o3 != null ? aq.o3.toFixed(1) : "—";
+      els.no2.textContent = aq.no2 != null ? aq.no2.toFixed(1) : "—";
+      els.so2.textContent = aq.so2 != null ? aq.so2.toFixed(1) : "—";
+      els.co.textContent = aq.co != null ? aq.co.toFixed(1) : "—";
+
+      const aqiApprox = pm25ToUS_AQI(pm25);
+      const q = qualityFromAQI(aqiApprox);
+      els.aqiBadge.textContent = aqiApprox != null ? `${q.label} • AQI ${aqiApprox}` : "No AQI";
+      els.aqiBadge.style.background = aqiApprox <= 100 ? "#133017" : aqiApprox <= 150 ? "#3d2f00" : "#3a1010";
+      els.aqiBadge.style.border = "1px solid rgba(255,255,255,.08)";
+      els.aqiPointer.style.left = `${q.pct}%`;
+      els.aqiText.textContent = q.desc;
+    }
+
+    // Events
+    els.form.addEventListener("submit", (e)=>{
+      e.preventDefault();
+      const q = (els.q.value || "").trim();
+      if(!q){ showStatus("Please enter a location.", "error"); return; }
+      fetchWeather(q);
+    });
+
+    // Handy: let Enter focus search, or load default city on first paint
+    window.addEventListener("DOMContentLoaded", ()=>{
+      const defaultCity = "London";
+      els.q.value = defaultCity;
+      fetchWeather(defaultCity);
+    });
+  </script>
+</body>
+</html>
